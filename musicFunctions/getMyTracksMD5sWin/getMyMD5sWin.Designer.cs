@@ -249,6 +249,8 @@
             // 
             // dgvSeedsNeededOnDT
             // 
+            this.dgvSeedsNeededOnDT.AllowUserToAddRows = false;
+            this.dgvSeedsNeededOnDT.AllowUserToDeleteRows = false;
             this.dgvSeedsNeededOnDT.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
             | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
@@ -258,6 +260,7 @@
             this.dgvSeedsNeededOnDT.Name = "dgvSeedsNeededOnDT";
             this.dgvSeedsNeededOnDT.Size = new System.Drawing.Size(972, 435);
             this.dgvSeedsNeededOnDT.TabIndex = 1;
+            this.dgvSeedsNeededOnDT.CellContentClick += new System.Windows.Forms.DataGridViewCellEventHandler(this.dgvSeedsNeededOnDT_CellContentClick);
             // 
             // btnGetSeedsNeededOnDT
             // 

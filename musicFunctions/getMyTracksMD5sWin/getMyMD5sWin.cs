@@ -31,17 +31,11 @@ namespace getMyTracksMD5sWin
         public getMyMD5sWin()
         {
             FormClosing += new FormClosingEventHandler(getMyMD5sWin_FormClosing);
-            //dgvSeedsNeededOnDT.ColumnHeaderMouseClick += new DataGridViewCellMouseEventHandler(dgvSeedsNeededOnDT_ColumnHeaderMouseClick);
             InitializeComponent();
             initBGWGetMD5s();
             initBGWReportDuplicates();
             initBGWGetSeedsNeededOnDT();
-        }
-
-        void dgvSeedsNeededOnDT_ColumnHeaderMouseClick(object sender, DataGridViewCellMouseEventArgs e)
-        {
-
-            throw new NotImplementedException();
+            dgvSeedsNeededOnDT.ColumnHeaderMouseClick += new DataGridViewCellMouseEventHandler(dgvSeedsNeededOnDT_ColumnHeaderMouseClick);
         }
 
         private void getMyMD5sWin_Load(object sender, EventArgs e)
@@ -328,18 +322,6 @@ namespace getMyTracksMD5sWin
                 case 1:
                     lblCurrentOne.Text = "Searching ... :" + (string)e.UserState;
                     break;
-                case 2:
-                    this.txtGetMD5sResults.Text = (string)e.UserState;
-                    break;
-                case 3:
-                    this.lblFLACCount.Text = (string)e.UserState;
-                    break;
-                case 4:
-                    this.lblSHNCount.Text = (string)e.UserState;
-                    break;
-                case 5:
-                    this.lblWAVCount.Text = (string)e.UserState;
-                    break;
             }
         }
 
@@ -347,8 +329,6 @@ namespace getMyTracksMD5sWin
         {
             proBarGetMD5sFilesFound.Style = ProgressBarStyle.Continuous;
             btnGetSeedsNeededOnDT.Text = "&Search";
-
-
             if (e.Cancelled)
             {
 
@@ -365,8 +345,15 @@ namespace getMyTracksMD5sWin
                 else
                 {
                     dgvSeedsNeededOnDT.DataSource = dtSeedsNeeded;
-                    lblCurrentOne.Text = "Done!";
-                    //    dtSeedsNeeded 
+                    lblCurrentOne.Text = "Number needing seeds = " + dtSeedsNeeded.Rows.Count;
+                    if (chkOnlyShowMine.Checked)
+                    {
+                        chkOnlyShowMine_CheckedChanged(sender, e);
+                    }
+                    else
+                    {
+                        addLinks();
+                    }
                 }
             }
         }
@@ -374,34 +361,27 @@ namespace getMyTracksMD5sWin
         private void btnGetSeedsNeededOnDT_Click(object sender, EventArgs e)
         {
             Settings.Default.Save();
+            dtSeedsNeeded.Clear();
             try
             {
                 OneMemberID memberIdFromSecret = new functions(ConfigurationManager.AppSettings["APIBaseUrl"]).getMemberIDFromSecret(txtMySecret.Text);
                 int mid = memberIdFromSecret.MID;
-                if (mid.Equals(0))
+                Button workerButton = (Button)sender;
+                if (workerButton.Text.Equals("&Search"))
                 {
-                    resetFields();
-                    throw new Exception("Secret is not valid!");
+                    string[] args = new string[] { mid.ToString() };
+                    proBarGetMD5sFilesFound.Style = ProgressBarStyle.Marquee;
+                    bgwGetSeedsNeededOnDT.RunWorkerAsync(args);
+                    workerButton.Text = "&Cancel";
                 }
                 else
                 {
-                    Button workerButton = (Button)sender;
-                    if (workerButton.Text.Equals("&Search"))
+                    lblCurrentOne.Text = "Cancelling in progress. Please wait ...";
+                    if (bgwGetSeedsNeededOnDT.IsBusy)
                     {
-                        string[] args = new string[] { mid.ToString() };
-                        proBarGetMD5sFilesFound.Style = ProgressBarStyle.Marquee;
-                        bgwGetSeedsNeededOnDT.RunWorkerAsync(args);
-                        workerButton.Text = "&Cancel";
+                        bgwGetSeedsNeededOnDT.CancelAsync();
                     }
-                    else
-                    {
-                        lblCurrentOne.Text = "Cancelling in progress. Please wait ...";
-                        if (bgwGetSeedsNeededOnDT.IsBusy)
-                        {
-                            bgwGetSeedsNeededOnDT.CancelAsync();
-                        }
-                    }
-                }
+                }                
             }
             catch (Exception ex)
             {
@@ -413,14 +393,72 @@ namespace getMyTracksMD5sWin
 
         private void chkOnlyShowMine_CheckedChanged(object sender, EventArgs e)
         {
+            if (dgvSeedsNeededOnDT.DataSource != null)
+            {
+                addLinks();
+                CurrencyManager currencyManager1 = (CurrencyManager)BindingContext[dgvSeedsNeededOnDT.DataSource];
+                currencyManager1.SuspendBinding();
+                foreach (DataGridViewRow item in dgvSeedsNeededOnDT.Rows)
+                {
+                    if (chkOnlyShowMine.Checked)
+                    {
+                        if (item.Cells["Have"].Value.Equals("No"))
+                        {
+                            item.Visible = false;
+                        }
+                    }
+                    else
+                    {
+                        item.Visible = true;
+                    }
+                }
+                currencyManager1.ResumeBinding();
+            }
+        }
 
+        private void dgvSeedsNeededOnDT_CellContentClick(object sender, DataGridViewCellEventArgs e)
+        {
+            if (e.RowIndex > -1)
+            {
+                if (dgvSeedsNeededOnDT.Rows[e.RowIndex].Cells[e.ColumnIndex] is DataGridViewLinkCell)
+                {
+                    switch (e.ColumnIndex)
+                    {
+                        case 3:
+                            Process.Start(MD5Functions.DTBaseURL + "details.php?id=" + dgvSeedsNeededOnDT.Rows[e.RowIndex].Cells[0].Value + "&dllist=1#seeders");
+                            break;
+                        case 4:
+                            Process.Start(MD5Functions.DTBaseURL + "download.php/" + dgvSeedsNeededOnDT.Rows[e.RowIndex].Cells[0].Value + "/" + dgvSeedsNeededOnDT.Rows[e.RowIndex].Cells[4].Value);
+                            break;
+                        default:
+                            break;
+                    }
+                }
+            }
+        }
+
+        void dgvSeedsNeededOnDT_ColumnHeaderMouseClick(object sender, DataGridViewCellMouseEventArgs e)
+        {
+            chkOnlyShowMine_CheckedChanged(sender, e);
+        }
+
+        private void addLinks()
+        {
+            foreach (DataGridViewRow r in dgvSeedsNeededOnDT.Rows)
+            {
+                DataGridViewLinkCell lc = new DataGridViewLinkCell();
+                lc.Value = r.Cells[3].Value;
+                dgvSeedsNeededOnDT[3, r.Index] = lc;
+                DataGridViewLinkCell lc2 = new DataGridViewLinkCell();
+                lc2.Value = r.Cells[4].Value;
+                dgvSeedsNeededOnDT[4, r.Index] = lc2;
+            }
         }
     }
 
     public class MD5Functions
     {
-
-        private static string DTBaseURL = "http://www.dreamingtree.org/";
+        public static string DTBaseURL = "http://www.dreamingtree.org/";
         public static string outFile = string.Empty;
         private static string strSecretSecret = functions.generateMD5hash(ConfigurationManager.AppSettings["SecretSecret"]);
         private static List<FileInfo> musicFiles = new List<FileInfo>();
@@ -442,8 +480,13 @@ namespace getMyTracksMD5sWin
         public void getSeedsNeededOnDT(BackgroundWorker worker, DoWorkEventArgs e, string MemberID)
         {
             functions functions = new musicFunctions.functions(ConfigurationManager.AppSettings["APIBaseUrl"]);
+            List<OneMyDT> lstMyDTSources = new List<OneMyDT>();
 
-            List<OneMyDT> lstMyDTSources = functions.getMyDTSources(Int32.Parse(MemberID));
+            int iMemberID = Int32.Parse(MemberID);
+            if (iMemberID > 0)
+            {
+                lstMyDTSources = functions.getMyDTSources(iMemberID);
+            }
 
             WebClient webClient = new WebClient();
 
@@ -465,41 +508,44 @@ namespace getMyTracksMD5sWin
 
                 foreach (HtmlNode hnLogEntry in doc.DocumentNode.SelectNodes("/html[1]/body[1]/table[3]/tr[1]/td[1]/tr[1]/td[1]/table[2]/tr"))
                 {
-                    if (!hnLogEntry.ChildNodes[1].InnerText.Equals("Category"))
+                    if (!worker.CancellationPending)
                     {
-                        DataRow dr = dt.NewRow();
-                        string strName = hnLogEntry.ChildNodes[3].InnerText.Trim();
-                        string dllink = hnLogEntry.ChildNodes[3].ChildNodes[2].Attributes["href"].Value;
-                        string dtID = dllink.Substring(13, dllink.IndexOf("/", 14) - 13);
-                        int iThisDTID = Int32.Parse(dtID);
-                        int iSeeders = Int32.Parse(hnLogEntry.ChildNodes[13].InnerText.Trim());
-                        iLeechers = Int32.Parse(hnLogEntry.ChildNodes[15].InnerText.Trim());
-
-                        if (iLeechers.Equals(0))
+                        if (!hnLogEntry.ChildNodes[1].InnerText.Equals("Category"))
                         {
-                            break;
+                            string strName = hnLogEntry.ChildNodes[3].InnerText.Trim();
+                            string dllink = hnLogEntry.ChildNodes[3].ChildNodes[2].Attributes["href"].Value;
+                            string dtID = dllink.Substring(13, dllink.IndexOf("/", 14) - 13);
+                            int iThisDTID = Int32.Parse(dtID);
+                            int iSeeders = Int32.Parse(hnLogEntry.ChildNodes[13].InnerText.Trim());
+                            iLeechers = Int32.Parse(hnLogEntry.ChildNodes[15].InnerText.Trim());
+
+                            if (iLeechers.Equals(0))
+                            {
+                                break;
+                            }
+
+                            if (iSeeders < 5)
+                            {
+                                var oneIHave = from row in lstMyDTSources
+                                               where row.DTID.Equals(iThisDTID)
+                                               select row;
+
+                                DataRow dr = dt.NewRow();
+                                dr["DTID"] = iThisDTID;
+                                dr["Seeders"] = iSeeders;
+                                dr["Leeches"] = iLeechers;
+                                dr["TorrentName"] = Uri.UnescapeDataString(strName);
+                                dr["Download"] = Uri.UnescapeDataString(dllink.Remove(0, "download.php/".Length + dtID.Length + 1));
+                                dr["Have"] = iMemberID > 0 ? oneIHave.FirstOrDefault<OneMyDT>() != null ? "Yes" : "No" : "Unknown";
+                                dt.Rows.Add(dr);
+                                worker.ReportProgress(0, dr);
+                                worker.ReportProgress(1, strName);
+                            }
                         }
-
-                        if (iSeeders < 5)
-                        {
-                            var oneIHave = from row in lstMyDTSources
-                                           where row.DTID.Equals(iThisDTID)
-                                           select row;
-
-
-                            dr["DTID"] = iThisDTID;
-                            dr["Seeders"] = iSeeders;
-                            dr["Leeches"] = iLeechers;
-                            dr["TorrentName"] = strName;
-                            dr["Download"] = dllink;
-                            dr["Have"] = oneIHave.FirstOrDefault<OneMyDT>() != null ? "Yes" : "No";
-                            dt.Rows.Add(dr);
-                            worker.ReportProgress(0, dr);
-                            worker.ReportProgress(1, strName);
-                        }
-                        iLeechers = 0;
                     }
                 }
+                // Remove this when live
+                //iLeechers = 0;
                 j++;
             }
         }
