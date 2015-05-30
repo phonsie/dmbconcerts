@@ -19,7 +19,7 @@ using System.Web.Script.Serialization;
 namespace etree
 {
     class etree
-    {        
+    {
         #region Constants
         private static int VENUE_DATE = 1;
         private static int VENUE_NAME = 3;
@@ -62,21 +62,165 @@ namespace etree
         static void Main(string[] args)
         {
             var functions = new functions(BaseUrl, username, password, customHeader);
-            
+
+            // Delete a link to DT!! Just use the DT ID
+            // IRestResponse irr1212 = functions.deleteDT(6717);            
+
+            // http://dmb.phevey.com/md5Missing.php?ffp
+            // Use this to update FFPs from Official Releases also.
+            if (false)
+            #region Update MD5ID e.g to fix all FFPs missing issues & Use this to update FFPs from Official Releases also.
+            {
+
+                // Get from website as below
+                // http://dmb.phevey.com/sourceDetails.php?sourceID=94223&showID
+                // Just make sure they're in sequence!
+                int iTrackID = 92840;
+                int iSourceID = 362057016;
+                string strFFPpath = @"C:\Users\ph\Music\Dave Matthews Band\The Bayou\dmb1992-12-21.ffp";
+
+                // This adds the new FFPs and then updates the tracks with newly created MD5ID
+                List<string> lstTrackDetails = functions.returnFileContents(strFFPpath);
+
+                OneShowSource oss = functions.getShowSource(iSourceID);
+                if (checkIfMD5sAlreadyExist(oss, strFFPpath).Equals(false))
+                {
+                    int intColumnNumber = musicFunctions.functions.md5SortColumnNumber(lstTrackDetails[0], "File");
+                    lstTrackDetails = lstTrackDetails.OrderBy(line => line.Substring(intColumnNumber)).ToList<string>();
+                    lstTrackDetails = lstTrackDetails.Distinct<string>().ToList<string>();
+                    for (int i = 0; i < lstTrackDetails.Count; i++)
+                    {
+                        string md5String = musicFunctions.functions.getMD5FromString(lstTrackDetails[i]).ToLower();
+                        OneMD5 thisMD5 = new OneMD5();
+                        thisMD5.MD5 = md5String;
+                        int iMD5ID = functions.getIDFromRestResponse(functions.addMD5(thisMD5));
+                        Console.WriteLine(iMD5ID);
+                        OneTrack thisTrack = functions.getTrack(iTrackID++);
+                        thisTrack.MD5ID = iMD5ID;
+                        IRestResponse irrUT = functions.updateTrack(thisTrack);
+                    }
+                }
+                else
+                {
+                    Console.WriteLine("An MD5 already exists!");
+                }
+            }
+            #endregion
+
+            if (false)
+            #region BannedSources
+            {
+                List<OneBannedSource> lstBannedSources = new List<OneBannedSource>();
+                OneBannedSource obs = new OneBannedSource();
+
+                obs.SourceID = 2953;
+                obs.Reason = "MD5s on Etree are from 5396";
+                lstBannedSources.Add(obs);
+                #region Done
+                /*
+                obs.SourceID = 3533;
+                obs.Reason = "Post 1995 DSBD";
+                lstBannedSources.Add(obs);
+                obs.SourceID = 022260;
+                obs.Reason = "25287 is supposedly better";
+                lstBannedSources.Add(obs);
+                obs.SourceID = 098325;
+                obs.Reason = "This recording is missing Rhyme & Reason";
+                lstBannedSources.Add(obs);
+                /*
+                obs.SourceID = 017998;
+                obs.Reason = "95300 is more complete";
+                lstBannedSources.Add(obs);
+                obs.SourceID = 0;
+                obs.Reason = "";
+                lstBannedSources.Add(obs);
+                */
+                #endregion
+
+                foreach (var item in lstBannedSources)
+                {
+                    IRestResponse irr = functions.addBannedSource(item);
+                }
+            }
+            /*
+            OneBannedSource obs2 = new OneBannedSource();
+            obs2.SourceID = 124712;
+            obs2.Reason = "Official Release";
+            functions.addBannedSource(obs2);
+            */
+            #endregion
+
+            if (false)
+            #region Set All Official to Banned
+            {
+                List<OneShowSource> lstSources = functions.getShowSources();
+                foreach (OneShowSource thisSource in lstSources)
+                {
+                    if (thisSource.SourceID > 362000000 && thisSource.SourceID < 372000000)
+                    {
+                        Console.WriteLine(thisSource.SourceID);
+                        OneBannedSource obs = new OneBannedSource();
+                        obs.SourceID = thisSource.SourceID;
+                        obs.Reason = "Official Release";
+                        functions.addBannedSource(obs);
+                    }
+                }
+                //obs.Reason = "Post 1995 DSBD";
+            }
+            //functions.addBannedSource(obs);
+            #endregion
+
+            if (false)
+            #region Banned Sources unit testing
+            {
+                // Remember to set the AUTO_INCREMENT on the primary key!
+                List<OneBannedSource> lstBannedSources = functions.getBannedSources();
+
+                OneBannedSource oneBannedSource = new OneBannedSource();
+                oneBannedSource.Reason = "Test";
+                oneBannedSource.SourceID = 12345;
+
+                IRestResponse irr = functions.addBannedSource(oneBannedSource);
+                int ID = functions.getIDFromRestResponse(irr);
+
+                OneBannedSource oneBannedSource2 = functions.getBannedSource(ID);
+                oneBannedSource2.Reason = "Update test";
+
+                irr = functions.updateBannedSource(oneBannedSource2);
+
+                lstBannedSources = functions.getBannedSources();
+
+                irr = functions.deleteBannedSource(ID);
+
+                lstBannedSources = functions.getBannedSources();
+
+            }
+            #endregion
+
+            if (false)
+            #region Change the source type from 24 to 16
+            {
+                OneShowSource oneShowSource = functions.getShowSource(131185);
+                OneSourceInfo oneSourceInfo = functions.getSourceInfoFromShowSourceID(oneShowSource.SSID);
+                oneSourceInfo.Type = 1;
+                functions.updateSourceInfo(oneSourceInfo);
+            }
+            #endregion
+
             if (false)
             #region Add One Track Name
             {
                 OneTrackName otn = new OneTrackName();
-                otn.TrackName = "Seek Up > Pantala Naga Pampa";
+                otn.TrackName = "Be Yourself";
                 functions.addTrackName(otn);
-                otn.TrackName = "Blue Water > Lie In Our Graves";
+                otn.TrackName = "You And Me > Grey Street";
                 //functions.addTrackName(otn);
             }
             #endregion
 
             #region IMPORT NEW SOURCES
             // 1. Get any new sources from all the DMB related pages
-            if (true)
+            if (false)
             #region GetNewShowsAndSources
             {
                 lstNonStates.Add("Unknown");
@@ -100,14 +244,22 @@ namespace etree
                     lstSourceIDs.Add(item.SourceID.ToString());
                 }
 
-                List<OneArtist> lstArtists = functions.getArtists();
-                foreach (var item in lstArtists)
+                bool bAll = true;
+                if (bAll)
                 {
-                    for (int i = 1989; i < DateTime.Now.Year + 1; i++)
+                    List<OneArtist> lstArtists = functions.getArtists();
+                    foreach (var item in lstArtists)
                     {
-                        getShowsAndSourceIDs(i, item.AID);
-                        Console.WriteLine(i + ":" + item.Artist);
+                        for (int i = 1989; i < DateTime.Now.Year + 1; i++)
+                        {
+                            getShowsAndSourceIDs(i, item.AID);
+                            Console.WriteLine(i + ":" + item.Artist);
+                        }
                     }
+                }
+                else
+                {
+                    getShowsAndSourceIDs(1995, 4329);
                 }
             }
             #endregion
@@ -143,7 +295,7 @@ namespace etree
             #endregion
 
             // 3. Check the files for errors manually and fix them, after that import them
-            if (false)
+            if (true)
             #region Import New Sources From Files
             {
                 List<OneFailedToParseSourceID> lstParseError = functions.getShowSourcesWhichFailedToParse();
@@ -323,8 +475,8 @@ namespace etree
             if (false)
             #region Rename One Track
             {
-                OneTrackName thisTN = functions.getTrackName(3735);
-                thisTN.TrackName = "Bartender > Don't Drink The Water";
+                OneTrackName thisTN = functions.getTrackName(2474);
+                thisTN.TrackName = "Tim Solo";
                 IRestResponse irr = functions.updateTrackName(thisTN);
             }
             #endregion
@@ -332,15 +484,15 @@ namespace etree
             if (false)
             #region Remove Source
             {
-                int iSourceID = 123158;
+                int iSourceID = 2953;
                 OneShowSource thisShowSource = functions.getShowSource(iSourceID);
                 List<OneTrack> lstTracks = functions.getTrackIDsFromShowSourceID(thisShowSource.SSID);
                 foreach (var item in lstTracks)
                 {
                     IRestResponse irr = functions.deleteTrack(item.TID);
-                    irr = functions.deleteMD5(item.MD5ID);
-                    irr = functions.deleteTrackName(item.NameID);
-                    irr = functions.deleteTrackFileName(item.FileNameID);
+                    //irr = functions.deleteMD5(item.MD5ID);
+                    //irr = functions.deleteTrackName(item.NameID);
+                    //irr = functions.deleteTrackFileName(item.FileNameID);
                 }
             }
             #endregion
@@ -429,8 +581,8 @@ namespace etree
             //IRestResponse irrDTN3 = functions.deleteTrackName(2350);
             #endregion
 
-            #region One off Taper Entry
             if (false)
+            #region One off Taper Entry
             {
                 int iSourceID = 128797;
                 string strType = "Flac16";
@@ -457,49 +609,11 @@ namespace etree
             }
             #endregion
 
-            // http://dmb.phevey.com/md5Missing.php?ffp
-            if (false)
-            #region Update MD5ID e.g to fix all FFPs missing issues
-            {
-                // Get from website as below
-                // http://dmb.phevey.com/sourceDetails.php?sourceID=94223&showID
-                // Just make sure they're in sequence!
-                int iTrackID = 88021;
-                string strFFPpath = @"Z:\1998\AOK\ToSeed\dmb1998-08-09.flac16\dmb1998-08-09.flac16.ffp";
-
-                // This adds the new FFPs and then updates the tracks with newly created MD5ID
-                List<string> lstTrackDetails = functions.returnFileContents(strFFPpath);
-
-                OneShowSource oss = functions.getShowSource(94223);
-                if (checkIfMD5sAlreadyExist(oss, strFFPpath).Equals(false))
-                {
-                    int intColumnNumber = musicFunctions.functions.md5SortColumnNumber(lstTrackDetails[0], "File");
-                    lstTrackDetails = lstTrackDetails.OrderBy(line => line.Substring(intColumnNumber)).ToList<string>();
-                    lstTrackDetails = lstTrackDetails.Distinct<string>().ToList<string>();
-                    for (int i = 0; i < lstTrackDetails.Count; i++)
-                    {
-                        string md5String = musicFunctions.functions.getMD5FromString(lstTrackDetails[i]).ToLower();
-                        OneMD5 thisMD5 = new OneMD5();
-                        thisMD5.MD5 = md5String;
-                        int iMD5ID = functions.getIDFromRestResponse(functions.addMD5(thisMD5));
-                        Console.WriteLine(iMD5ID);
-                        OneTrack thisTrack = functions.getTrack(iTrackID++);
-                        thisTrack.MD5ID = iMD5ID;
-                        IRestResponse irrUT = functions.updateTrack(thisTrack);
-                    }
-                }
-                else
-                {
-                    Console.WriteLine("An MD5 already exists!");
-                }
-            }
-            #endregion
-
             // http://dmb.phevey.com/shows.php?TNID=9582
             if (false)
             #region Fix Unclear from source text issue
             {
-                int iSourceID = 3028;
+                int iSourceID = 94890;
                 OneShowSource oss = functions.getShowSource(iSourceID);
                 List<OneTrack> lstTracks = functions.getTrackIDsFromShowSourceID(oss.SSID);
                 List<string> lstTrackNames = functions.returnFileContents(dataDir + @"sources\FixedArchive\Issues\TrackCountNotMatchingMD5s\" + oss.SourceID + ".tracks.txt");
@@ -533,6 +647,7 @@ namespace etree
                             OneTrack thisOneTrack = lstTracks[i];
                             thisOneTrack.NameID = dctTrackNameIDs[i];
                             IRestResponse irr = functions.updateTrack(thisOneTrack);
+                            Console.WriteLine(irr.Content);
                         }
                     }
                     else
@@ -666,8 +781,15 @@ namespace etree
                 // The problem was the name contained a ' 
                 //dctDTLinks.Add(7954, 108987);
                 //dctDTLinks.Add(5602, 2677);
-                dctDTLinks.Add(9924, 130412);
-                dctDTLinks.Add(9923, 130413);
+                //dctDTLinks.Add(9924, 130412);
+                //dctDTLinks.Add(9923, 130413);
+                //dctDTLinks.Add(9999, 130726);
+                //dctDTLinks.Add(10002, 130743);
+                //dctDTLinks.Add(10072, 131493);
+                //dctDTLinks.Add(7362, 2826);
+                //130768
+                
+
 
                 foreach (var item in dctDTLinks)
                 {
@@ -749,10 +871,10 @@ namespace etree
             #endregion
 
             bool BulkRenameFiles = false;
-            #region Bulk Rename Files
             if (false)
+            #region Bulk Rename Files
             {
-                string[] strArrFiles = Directory.GetFiles(@"Z:\1999\AOK\d+t1999-02-19.mk4.shnf");
+                string[] strArrFiles = Directory.GetFiles(@"Z:\2003\AOK\d+t2003-03-19.akg483.shnf");
                 foreach (var item in strArrFiles)
                 {
                     if (item.EndsWith(".shn"))
@@ -760,7 +882,7 @@ namespace etree
                         Console.WriteLine(item);
                         try
                         {
-                            File.Move(item, item.Replace("dt99", "d+t1999"));
+                            File.Move(item, item.Replace("d&t", "d+t"));
                         }
                         catch (Exception ex)
                         {
@@ -1249,6 +1371,7 @@ namespace etree
                                     thisTrack.FileNameID = functions.getTrackFileNameID(lstTrackDetails[i].ToLower().Replace(md5String, "").Trim().Replace("*", "").Replace(":", ""));
                                 }
                                 thisTrack.Length = "";
+                                thisTrack.AddedTime = functions.ConvertToUnixTimestamp(DateTime.Now);
                                 IRestResponse irrAddTrack = functions.addTrack(thisTrack);
                                 Console.WriteLine(functions.getLineForLog(irrAddTrack));
                             }
@@ -1941,7 +2064,14 @@ namespace etree
                     if (!lstShowIDs.Contains(iEtreeID))
                     {
                         OneShow thisShow = new OneShow();
-                        thisShow.ArtistID = ArtistID;
+                        if (ArtistID.Equals(4329))
+                        {
+                            thisShow.ArtistID = 6;
+                        }
+                        else
+                        {
+                            thisShow.ArtistID = ArtistID;
+                        }
                         thisShow.Day = Int32.Parse(strDate.Substring(3, 2));
                         thisShow.EtreeID = iEtreeID;
                         thisShow.Month = Int32.Parse(strDate.Substring(0, 2));
@@ -2066,22 +2196,48 @@ namespace etree
                             strNameAndLength = Regex.Replace(strNameAndLength, @"-$", "").Trim();                   // Remove a - at the end of the line
                             strNameAndLength = Regex.Replace(strNameAndLength, @"^-", "").Trim();                   // Remove a - at the start of the line
                             strNameAndLength = Regex.Replace(strNameAndLength, @"[^\w\'\.\ \#\?\->]", "").Trim();   // Remove everything except the quoted characters
+
+
+                            //strNameAndLength = strNameAndLength.Replace("", "");
+
+                            strNameAndLength = strNameAndLength.Replace("Big-Eyed Fish", "Big Eyed Fish");
+                            strNameAndLength = strNameAndLength.Replace("Big Eyed Fish >", "Big Eyed Fish");
+                            strNameAndLength = strNameAndLength.Replace("Burning Down the House", "Burning Down The House");
                             strNameAndLength = strNameAndLength.Replace("Cornbread", "Corn Bread");
+                            strNameAndLength = strNameAndLength.Replace("Crash into Me", "Crash Into Me");
+                            strNameAndLength = strNameAndLength.Replace("Crush Stefan bass intro", "Crush");
                             strNameAndLength = strNameAndLength.Replace("Digging a Ditch", "Digging A Ditch");
-                            strNameAndLength = strNameAndLength.Replace("Don't Drink the Water", "Don't Drink The Water");                           
+                            strNameAndLength = strNameAndLength.Replace("Don't Drink the Water", "Don't Drink The Water");
                             strNameAndLength = strNameAndLength.Replace("encore", "Encore Break");
+                            strNameAndLength = strNameAndLength.Replace("Funny the Way It Is", "Funny The Way It Is");
                             strNameAndLength = strNameAndLength.Replace("Grave Digger", "Gravedigger");
                             strNameAndLength = strNameAndLength.Replace("Introduction", "Intro");
                             strNameAndLength = strNameAndLength.Replace("JTR", "John The Revelator");
+                            strNameAndLength = strNameAndLength.Replace("Lie in Our Graves", "Lie In Our Graves");
+                            strNameAndLength = strNameAndLength.Replace("Needle And The Damage Done", "The Needle And The Damage Done");
                             strNameAndLength = strNameAndLength.Replace("Pay for What You Get", "Pay For What You Get");
+                            strNameAndLength = strNameAndLength.Replace("Pantala Naga Pampa >", "Pantala Naga Pampa");
+                            strNameAndLength = strNameAndLength.Replace("Pantala Naga Pampa->", "Pantala Naga Pampa");
                             strNameAndLength = strNameAndLength.Replace("PNP", "Pantala Naga Pampa");
+                            strNameAndLength = strNameAndLength.Replace("Rhyme  Reason", "Rhyme And Reason");
+                            strNameAndLength = strNameAndLength.Replace("Set 1 Intro", "Intro");
+                            strNameAndLength = strNameAndLength.Replace("Set 2 Intro", "Intro");
                             strNameAndLength = strNameAndLength.Replace("Shake Me Like a Monkey", "Shake Me Like A Monkey");
+                            strNameAndLength = strNameAndLength.Replace("Slip Slidin' Away", "Slip Sliding Away");
+                            strNameAndLength = strNameAndLength.Replace("Stay Wasting Time", "Stay (Wasting Time)");
+                            strNameAndLength = strNameAndLength.Replace("Stay or Leave", "Stay Or Leave");
                             strNameAndLength = strNameAndLength.Replace("Stolen Away on 55th  3rd", "Stolen Away On 55th And 3rd");
-                            strNameAndLength = strNameAndLength.Replace("You and Me", "You And Me"); 
+                            strNameAndLength = strNameAndLength.Replace("Take Me to Tomorrow", "Take Me To Tomorrow");
+                            strNameAndLength = strNameAndLength.Replace("The Idea of You", "The Idea Of You");
+                            strNameAndLength = strNameAndLength.Replace("The Needle and the Damage Done", "The Needle And The Damage Done");
+                            strNameAndLength = strNameAndLength.Replace("You and Me", "You And Me");
                             strNameAndLength = strNameAndLength.Replace("You  Me", "You And Me");
                             strNameAndLength = strNameAndLength.Replace("Water into Wine", "Water Into Wine");
                             strNameAndLength = strNameAndLength.Replace("What Would You Say", "What Would You Say?");
-                            
+                            strNameAndLength = strNameAndLength.Replace("When the World Ends", "When The World Ends");
+                            strNameAndLength = strNameAndLength.Replace("Where Are You Going", "Where Are You Going?");
+                            strNameAndLength = strNameAndLength.Replace("Write a Song", "Write A Song");
+
 
 
                             string sSeparator = string.Empty;
@@ -2301,6 +2457,13 @@ namespace etree
                 }
                 #endregion
 
+                /*
+                CREATE TABLE `bannedSources` 
+`BSID` INT AUTO_INCREMENT,
+`SourceID` INT,
+`Reason` VARCHAR(1024) CHARACTER SET utf8 COLLATE utf8_bin
+PRIMARY KEY(BSID)
+    */
                 #region showSources table
                 using (MySqlCommand cmd = new MySqlCommand("CREATE TABLE IF NOT EXISTS `showsources` (" +
                             "`SSID` INT AUTO_INCREMENT," +

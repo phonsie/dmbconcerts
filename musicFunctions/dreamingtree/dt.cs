@@ -8,10 +8,12 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Text;
+using System.Web;
 using HtmlAgilityPack;
 using PH_Common_4._0;
 using musicFunctions;
 using RestSharp;
+using WDS.Bencode;
 
 namespace dreamingtree
 {
@@ -45,7 +47,7 @@ namespace dreamingtree
             cookies.Add(uidcookie);
             cookies.Add(passcookie);
 
-            bool bCheckExistingPagesForNewSHNIDs = false;
+            bool bCheckExistingPagesForNewSHNIDs = true;
             #region Check Existing Pages For New SHNIDs
             if (bCheckExistingPagesForNewSHNIDs)
             {
@@ -99,6 +101,106 @@ namespace dreamingtree
             }
             #endregion
 
+            bool bUpdateTorrentNames = false;
+            #region Get New Torrents
+            if (bUpdateTorrentNames)
+            {
+                List<OneDT> lstDTs = functions.getDTs();
+
+                // http://www.dreamingtree.org/browse.php?incldead=1&sort=4&type=desc&page=0
+                int i = 0;
+                //for (int i = 1; i < 29; i++)
+                {
+                    string strHTML = musicFunctions.functions.getWebPage(strBaseURL + "browse.php?incldead=1&sort=4&type=desc&page=" + i, cookies);
+                    HtmlDocument doc = new HtmlDocument();
+                    doc.LoadHtml(strHTML);
+
+                    foreach (HtmlNode link in doc.DocumentNode.SelectNodes("//a[@href]"))
+                    {
+                        if (link.OuterHtml.Contains("download.php"))
+                        {
+                            HtmlNode parent = link.ParentNode;
+                            if (link.HasAttributes)
+                            {
+                                try
+                                {
+
+                                    string dllink = link.Attributes["href"].Value;
+                                    //dllink = "download.php/8511/daveandfriends2004-06-11.tlm170.flac16%2015-52-39-289.torrent";
+                                    string dtID = dllink.Substring(13, dllink.IndexOf("/", 14) - 13);
+                                    int iThisDTID = Int32.Parse(dtID);
+
+                                    //Console.WriteLine(dtID + " " + i);
+                                    PH_CF.pause(500);
+
+                                    // need this to ignore non-DMB torrents
+                                    var thisOne = from a in lstDTs
+                                                  where a.DTID.Equals(iThisDTID)
+                                                  select a;
+
+                                    OneDT dtExists = thisOne.FirstOrDefault();
+                                    if (dtExists != null)
+                                    {
+                                        string strTempFileName = @"C:\temp\temp.torrent";
+                                        string strDLURL = strBaseURL + HttpUtility.UrlDecode(dllink);
+                                        webClient.DownloadFile(strDLURL, strTempFileName);
+
+                                        FileStream fileT = File.OpenRead(strTempFileName);
+                                        var thisTorrent = WDS.Bencode.Extensions.ToBencodeDictionaryElement(fileT).Elements;
+
+                                        string strTorrentName = string.Empty;
+
+                                        foreach (var item in thisTorrent)
+                                        {
+                                            switch (item.Key.Value)
+                                            {
+                                                case "info":
+                                                    //Console.WriteLine("***");
+
+                                                    foreach (var item2 in (BencodeDictionary)item.Value)
+                                                    {
+                                                        switch (item2.Key.Value)
+                                                        {
+                                                            case "name":
+                                                                strTorrentName = ((BencodeString)item2.Value).Value;
+                                                                break;
+                                                            default:
+                                                                break;
+                                                        }
+                                                    }
+                                                    break;
+                                            }
+                                        }
+                                        fileT.Close();
+
+                                        OneDT thisDT = functions.getDT(iThisDTID);
+                                        if (!thisDT.Name.Equals(strTorrentName))
+                                        {
+                                            thisDT.Name = strTorrentName;
+                                            IRestResponse irr = functions.updateDT(thisDT);
+                                            Console.WriteLine(thisDT.DTID + " updated" + i);
+                                        }
+                                        else
+                                        {
+                                            Console.WriteLine(thisDT.DTID + " matched " + i);
+                                        }
+                                    }
+                                    else
+                                    {
+                                        Console.WriteLine("non-DMB" + iThisDTID);
+                                    }
+                                }
+                                catch (Exception ex)
+                                {
+                                    Console.WriteLine("non-DMB" + ex.Message);                                 
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            #endregion
+
             // This one works well!  As of June 2014
             bool bGetNewTorrents = true;
             #region Get New Torrents
@@ -127,7 +229,8 @@ namespace dreamingtree
                                 string dtID = dllink.Substring(13, dllink.IndexOf("/", 14) - 13);
                                 int iThisDTID = Int32.Parse(dtID);
 
-                                if (iThisDTID > lastDTID.LastDT)
+                                //if (iThisDTID > lastDTID.LastDT)
+                                //if (iThisDTID.Equals(10155))
                                 {
                                     {
                                         var oneDT = from r in lstDTs
@@ -196,6 +299,8 @@ namespace dreamingtree
                                 string dllink = link.Attributes["href"].Value;
                                 string dtID = dllink.Substring(13, dllink.IndexOf("/", 14) - 13);
                                 int iThisDTID = Int32.Parse(dtID);
+
+                                // need this to ignore non-DMB torrents
                                 var thisOne = from a in lstCurrentDTs
                                               where a.DTID.Equals(iThisDTID)
                                               select a;
@@ -229,7 +334,7 @@ namespace dreamingtree
 
                 DataTable dt = createDTParseLog();
 
-                for (int i = 0; i < 10; i++)
+                for (int i = 0; i < 20; i++)
                 {
                     HtmlDocument doc = musicFunctions.functions.getHTMLDoc(strBaseURL + "log.php?page=" + i, cookies);
                     foreach (HtmlNode hnLogEntry in doc.DocumentNode.SelectNodes("/html[1]/body[1]/table[3]/tr[1]/td[1]/tr[1]/td[1]/table[1]/tr"))

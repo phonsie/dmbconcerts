@@ -620,6 +620,80 @@ namespace musicFunctions
         }
         #endregion
 
+        #region bannedSources
+        public IRestResponse addBannedSource(OneBannedSource oneBannedSource)
+        {
+            var client = new RestClient();
+            client.BaseUrl = APIBaseURL;
+            client.Authenticator = new HttpBasicAuthenticator(username, password);
+
+            var request = new RestRequest(Method.POST);
+            request.Resource = "bannedsources/";
+            request.AddParameter("SourceID", oneBannedSource.SourceID);
+            request.AddParameter("Reason", oneBannedSource.Reason);
+            request.AddHeader(customHeader, "OK");
+            var response = client.Execute<OneBannedSource>(request);
+            return (response);
+        }
+
+        public IRestResponse deleteBannedSource(int iBannedSourceID)
+        {
+            var client = new RestClient();
+            client.BaseUrl = APIBaseURL;
+            client.Authenticator = new HttpBasicAuthenticator(username, password);
+
+            var request = new RestRequest(Method.DELETE);
+            request.Resource = "bannedsources/" + iBannedSourceID.ToString();
+            request.AddHeader(customHeader, "OK");
+            IRestResponse response = client.Execute<OneBannedSource>(request);
+            return (response);
+        }
+
+        public OneBannedSource getBannedSource(int iBannedSourceID)
+        {
+            var client = new RestClient();
+            client.BaseUrl = APIBaseURL;
+            client.Authenticator = new HttpBasicAuthenticator(username, password);
+
+            var request = new RestRequest();
+            request.Resource = "bannedsources/" + iBannedSourceID.ToString();
+            request.AddHeader(customHeader, "OK");
+            var response = client.Execute<List<OneBannedSource>>(request);
+            var thisData = response.Data;
+            return ((OneBannedSource)thisData[0]);
+        }
+
+        public List<OneBannedSource> getBannedSources()
+        {
+            List<OneBannedSource> lst = new List<OneBannedSource>();
+            var client = new RestClient();
+            client.BaseUrl = APIBaseURL;
+            client.Authenticator = new HttpBasicAuthenticator(username, password);
+
+            var request = new RestRequest();
+            request.Resource = "bannedsources/";
+            request.AddHeader(customHeader, "OK");
+            var response = client.Execute<List<OneBannedSource>>(request);
+            lst = response.Data;
+            return (lst);
+        }
+
+        public IRestResponse updateBannedSource(OneBannedSource oneBannedSource)
+        {
+            var client = new RestClient();
+            client.BaseUrl = APIBaseURL;
+            client.Authenticator = new HttpBasicAuthenticator(username, password);
+
+            var request = new RestRequest(Method.PUT);
+            request.Resource = "bannedsources/" + oneBannedSource.BSID;
+            request.AddParameter("SourceID", oneBannedSource.SourceID);
+            request.AddParameter("Reason", oneBannedSource.Reason);
+            request.AddHeader(customHeader, "OK");
+            var response = client.Execute(request);
+            return (response);
+        }
+        #endregion
+
         #region cities
         public IRestResponse addCity(OneCity oneCity)
         {
@@ -1902,6 +1976,13 @@ namespace musicFunctions
         public int AID { get; set; }
         public string Artist { get; set; }
         public string ShortName { get; set; }
+    }
+
+    public class OneBannedSource
+    {
+        public int BSID { get; set; }
+        public int SourceID { get; set; }
+        public string Reason { get; set; }
     }
 
     public class OneCity
